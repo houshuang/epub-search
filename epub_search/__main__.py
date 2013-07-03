@@ -17,11 +17,74 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import argparse
 import sys
 
 
+from epub_search import util
+
+
+class LogLevel:
+    (QUIET,
+     DEFAULT,
+     VERBOSE,
+     DEBUG) = range(4)
+
+
+class _EpubPathsAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        paths = []
+
+        for value in values:
+            paths.extend(value)
+
+        setattr(namespace, self.dest, paths)
+
+
+def _epub_path(path):
+    try:
+        return util.epubs_in_path(path)
+
+    except Exception as e:
+        raise argparse.ArgumentTypeError(str(e))
+
+
+def _parse_args(argv):
+    parser = argparse.ArgumentParser(description='Search ePub contents.')
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-q', '--quiet', action='store_true',
+                       help='supress warning output')
+    group.add_argument('-v', '--verbose', action='store_true',
+                       help='output additional info')
+    group.add_argument('--debug', action='store_true',
+                       help=argparse.SUPPRESS)
+
+    parser.add_argument('paths', metavar='PATH', nargs='+',
+                        action=_EpubPathsAction, type=_epub_path,
+                        help='list of epubs/paths to search in')
+    parser.add_argument('pattern', metavar='PATTERN', action='store',
+                        help='the text to search for')
+    args = parser.parse_args(argv)
+
+    if args.quiet:
+        log_level = LogLevel.QUIET
+
+    elif args.verbose:
+        log_level = LogLevel.VERBOSE
+
+    elif args.debug:
+        log_level = LogLevel.DEBUG
+
+    else:
+        log_level = LogLevel.DEFAULT
+
+    return args.pattern, tuple(util.unique(args.paths)), log_level
+
+
 def _epub_search(argv):
-    pass
+    #pattern, paths, log_level = _parse_args(argv)
+    print(_parse_args(argv))
 
 
 def main(argv=None):
