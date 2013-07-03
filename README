@@ -1,0 +1,28 @@
+epub-search
+===========
+
+This is version 0.1 of epub-search. epub-search is an ePub content searching
+program.
+
+epub-search is released under the GNU General Public License (GPL) version 2,
+see the file 'COPYING' for more information.
+
+
+Installing
+-----------
+
+epub-search can be installed....
+
+::
+
+    git clone https://github.com/gregier/epub-search
+    cd epub-search
+    python setup.py install
+
+
+Development and bug report
+--------------------------
+
+The source code is hosted on github. You can see it here:
+
+    https://github.com/gregier/epub-search
