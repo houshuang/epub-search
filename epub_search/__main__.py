@@ -54,6 +54,9 @@ def _epub_path(path):
 
 def _parse_args(argv):
     parser = argparse.ArgumentParser(description='Search ePub contents.')
+    parser.add_argument('-s', '--sort', default=None,
+                        choices=['author', 'title'],
+                        help='how the results should be sorted')
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-q', '--quiet', action='store_true',
@@ -82,14 +85,32 @@ def _parse_args(argv):
     else:
         log_level = LogLevel.DEFAULT
 
-    return args.pattern, tuple(util.unique(args.paths)), log_level
+    return args.pattern, tuple(util.unique(args.paths)), log_level, args.sort
+
+
+def _result_name(result, sort):
+    if sort is None:
+        return os.path.basename(result.path)
+
+    # Author is not required!
+    author = result.author
+    if author is None:
+        author = 'Unknown'
+
+    if sort == 'author':
+        part_order = (author, result.title)
+
+    else:
+        part_order = (result.title, author)
+
+    return ' - '.join(part_order)
 
 
 def _epub_search(argv):
     # Required for formatting with thousand separator
     locale.setlocale(locale.LC_ALL, '')
 
-    pattern, paths, log_level = _parse_args(argv)
+    pattern, paths, log_level, sort = _parse_args(argv)
 
     results = []
     logged = False
@@ -118,6 +139,15 @@ def _epub_search(argv):
         print('No matches found')
 
     else:
+        if sort is None:
+            # Sort by the order in which the paths were given
+            key = lambda x: paths.index(x.path)
+
+        else:
+            key = lambda x: getattr(x, sort).lower()
+
+        results = sorted(results, key=key)
+
         print('Matched {0:n} books out of {1:n}'.format(len(results),
                                                         len(paths)))
 
@@ -129,7 +159,7 @@ def _epub_search(argv):
 
         for result in results:
             print(result_format.format(result.n_matches,
-                                       os.path.basename(result.path)))
+                                       _result_name(result, sort)))
 
 
 def main(argv=None):
