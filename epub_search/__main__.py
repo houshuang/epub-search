@@ -18,9 +18,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import argparse
+import locale
+import operator
+import os
 import sys
 
-
+from epub_search import search
 from epub_search import util
 
 
@@ -83,8 +86,50 @@ def _parse_args(argv):
 
 
 def _epub_search(argv):
-    #pattern, paths, log_level = _parse_args(argv)
-    print(_parse_args(argv))
+    # Required for formatting with thousand separator
+    locale.setlocale(locale.LC_ALL, '')
+
+    pattern, paths, log_level = _parse_args(argv)
+
+    results = []
+    logged = False
+
+    for result in search.search(paths, pattern):
+        if result.error is not None:
+            if log_level >= LogLevel.DEFAULT:
+                logged = True
+                sys.stderr.write("Error: %s\n" % (result.error))
+
+        else:
+            if result.warnings is not None and log_level >= LogLevel.VERBOSE:
+                logged = True
+                sys.stderr.write('Broken ePub file: %r\n\t%s\n' %
+                                 (result.path,
+                                  '\n\t'.join(result.warnings)))
+
+            if result.n_matches > 0:
+                results.append(result)
+
+    # Separate the errors and warnings from the results
+    if logged:
+        print('\n')
+
+    if not results:
+        print('No matches found')
+
+    else:
+        print('Matched {0:n} books out of {1:n}'.format(len(results),
+                                                        len(paths)))
+
+        max_matches = max(results, key=operator.attrgetter("n_matches"))
+        max_matches_len = len('{0:n}'.format(max_matches.n_matches))
+
+        # format() does not support providing the width in the arguments
+        result_format = u'{0:>%in}  {1!s}' % (max_matches_len)
+
+        for result in results:
+            print(result_format.format(result.n_matches,
+                                       os.path.basename(result.path)))
 
 
 def main(argv=None):
