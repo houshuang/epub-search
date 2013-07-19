@@ -23,6 +23,18 @@ import operator
 import os
 import sys
 
+try:
+    import curses
+
+except ImportError:
+    curses = None
+
+try:
+    import cStringIO as StringIO
+
+except ImportError:
+    import StringIO
+
 from epub_search import search
 from epub_search import util
 
@@ -66,6 +78,9 @@ def _parse_args(argv):
     group.add_argument('--debug', action='store_true',
                        help=argparse.SUPPRESS)
 
+    parser.add_argument('--disable-curses', action='store_true',
+                        help=argparse.SUPPRESS)
+
     parser.add_argument('paths', metavar='PATH', nargs='+',
                         action=_EpubPathsAction, type=_epub_path,
                         help='list of epubs/paths to search in')
@@ -85,7 +100,27 @@ def _parse_args(argv):
     else:
         log_level = LogLevel.DEFAULT
 
+    if args.disable_curses:
+        global curses
+
+        curses = None
+
     return args.pattern, tuple(util.unique(args.paths)), log_level, args.sort
+
+
+def _print_progress(curses_window, n_searched, paths, results):
+    n_paths_len = len('{0:n}'.format(len(paths)))
+
+    # format() does not support providing the width in the arguments
+    progress_format = 'Searched {0:>%in}/{1:n} ePubs, {2:>%in} {3}...' % \
+                      (n_paths_len, n_paths_len)
+
+    matches_str = 'match' if len(results) == 1 else 'matches'
+
+    curses_window.clear()
+    curses_window.addstr(progress_format.format(n_searched, len(paths),
+                                                len(results), matches_str))
+    curses_window.refresh()
 
 
 def _result_name(result, sort):
@@ -115,21 +150,49 @@ def _epub_search(argv):
     results = []
     logged = False
 
-    for result in search.search(paths, pattern):
-        if result.error is not None:
-            if log_level >= LogLevel.DEFAULT:
-                logged = True
-                sys.stderr.write("Error: %s\n" % (result.error))
+    if curses is not None:
+        n_searched = 0
 
-        else:
-            if result.warnings is not None and log_level >= LogLevel.VERBOSE:
-                logged = True
-                sys.stderr.write('Broken ePub file: %r\n\t%s\n' %
-                                 (result.path,
-                                  '\n\t'.join(result.warnings)))
+        # Redirect until after after search
+        saved_stderr = sys.stderr
+        sys.stderr = StringIO.StringIO()
 
-            if result.n_matches > 0:
-                results.append(result)
+        curses_window = curses.initscr()
+
+        _print_progress(curses_window, n_searched, paths, results)
+
+    try:
+        for result in search.search(paths, pattern):
+            if result.error is not None:
+                if log_level >= LogLevel.DEFAULT:
+                    logged = True
+                    sys.stderr.write("Error: %s\n" % (result.error))
+
+            else:
+                if result.warnings is not None and log_level >= LogLevel.VERBOSE:
+                    logged = True
+                    sys.stderr.write('Broken ePub file: %r\n\t%s\n' %
+                                     (result.path,
+                                      '\n\t'.join(result.warnings)))
+
+                if result.n_matches > 0:
+                    results.append(result)
+
+            if curses is not None:
+                n_searched += 1
+
+                _print_progress(curses_window, n_searched, paths, results)
+
+    finally:
+        # Must make sure we restore the screen's
+        # state, otherwise bad things will happen
+        if curses is not None:
+            curses.endwin()
+
+            saved_stderr.write(sys.stderr.getvalue())
+            sys.stderr.close()
+
+            sys.stderr = saved_stderr
 
     # Separate the errors and warnings from the results
     if logged:
