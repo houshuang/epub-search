@@ -67,6 +67,8 @@ def _epub_path(path):
 
 def _parse_args(argv):
     parser = argparse.ArgumentParser(description='Search ePub contents.')
+    parser.add_argument('-c', '--context', action='store_true',
+                        help='print the match in the context of the paragraph')
     parser.add_argument('-i', '--ignore-case', action='store_true',
                         help='ignore case when searching')
     parser.add_argument('-s', '--sort', default=None,
@@ -110,7 +112,8 @@ def _parse_args(argv):
 
     matcher = matching.Matcher(args.pattern, args.ignore_case, True)
 
-    return tuple(util.unique(args.paths)), matcher, log_level, args.sort
+    return (tuple(util.unique(args.paths)), matcher,
+            log_level, args.sort, args.context)
 
 
 def _print_progress(curses_window, n_searched, paths, results):
@@ -150,7 +153,7 @@ def _epub_search(argv):
     # Required for formatting with thousand separator
     locale.setlocale(locale.LC_ALL, '')
 
-    paths, matcher, log_level, sort = _parse_args(argv)
+    paths, matcher, log_level, sort, with_context = _parse_args(argv)
 
     results = []
     logged = False
@@ -167,7 +170,7 @@ def _epub_search(argv):
         _print_progress(curses_window, n_searched, paths, results)
 
     try:
-        for result in search.search(paths, matcher):
+        for result in search.search(paths, matcher, with_context):
             if result.error is not None:
                 if log_level >= LogLevel.DEFAULT:
                     logged = True
@@ -228,6 +231,29 @@ def _epub_search(argv):
         for result in results:
             print(result_format.format(result.n_matches,
                                        _result_name(result, sort)))
+
+        # Print context after match list
+        if with_context:
+            for result in results:
+                print('')
+
+                result_name = _result_name(result, sort)
+
+                for label_matches in result.matches:
+                    label = label_matches.label
+
+                    if label is None:
+                        result_label = result_name
+
+                    else:
+                        result_label = ': '.join((result_name, label))
+
+                    for match in label_matches.matches:
+                        print('')
+                        print(result_label)
+
+                        # Might be nice to be able to customize this
+                        print(match.format('\033[1m', '\033[0m'))
 
 
 def main(argv=None):

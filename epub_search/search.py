@@ -22,8 +22,11 @@ from collections import namedtuple
 from epub_search import epub
 
 
+LabelMatches = namedtuple('LabelMatches', ('label', 'matches'))
+
+
 _search_result_fields = ('path', 'title', 'author',
-                         'n_matches', 'error', 'warnings')
+                         'n_matches', 'matches', 'error', 'warnings')
 
 
 class SearchResult(namedtuple('SearchResult', _search_result_fields)):
@@ -36,18 +39,20 @@ class SearchResult(namedtuple('SearchResult', _search_result_fields)):
     title: the ePub's title
     author: the author of the ePub
     n_matches: the numer of matches
+    matches: matches or None
     error: error message if parsing failed
     warnings: warnings gernerated while parsing the ePub
     """
 
     # namedtuple requires all fields
-    def __new__(cls, path, title=None, author=None, n_matches=0,
+    def __new__(cls, path, title=None, author=None, n_matches=0, matches=None,
                 error=None, warnings=None):
         return super(SearchResult, cls).__new__(cls, path, title, author,
-                                                n_matches, error, warnings)
+                                                n_matches, matches,
+                                                error, warnings)
 
 
-def _search_epub(path, matcher):
+def _search_epub(path, matcher, with_context):
     if isinstance(path, epub.Epub):
         epub_file = path
         path = epub_file.path
@@ -62,17 +67,36 @@ def _search_epub(path, matcher):
 
     with epub_file:
         n_matches = 0
+        matches = [] if with_context else None
 
-        for content in epub_file.contents:
-            n_matches += matcher.count(content.text)
+        if not with_context:
+            for content in epub_file.contents:
+                n_matches += matcher.count(content.text)
+
+        else:
+            for content in epub_file.contents:
+                label_matches = []
+
+                for match in matcher.match(content.text):
+                    n_matches += len(match)
+                    label_matches.append(match)
+
+                if label_matches:
+                    # Prevent modification
+                    label_matches = tuple(label_matches)
+                    matches.append(LabelMatches(label=content.label,
+                                                matches=label_matches))
+
+            # Prevent modification
+            matches = tuple(matches)
 
         return SearchResult(path=path, title=epub_file.title,
                             author=epub_file.author, n_matches=n_matches,
-                            warnings=epub_file.warnings)
+                            matches=matches, warnings=epub_file.warnings)
 
 
-def search(paths, matcher):
+def search(paths, matcher, with_context):
     for path in paths:
-        yield _search_epub(path, matcher)
+        yield _search_epub(path, matcher, with_context)
 
 # ex:et:ts=4:
