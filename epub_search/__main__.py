@@ -35,6 +35,7 @@ try:
 except ImportError:
     import StringIO
 
+from epub_search import matching
 from epub_search import search
 from epub_search import util
 
@@ -66,6 +67,8 @@ def _epub_path(path):
 
 def _parse_args(argv):
     parser = argparse.ArgumentParser(description='Search ePub contents.')
+    parser.add_argument('-i', '--ignore-case', action='store_true',
+                        help='ignore case when searching')
     parser.add_argument('-s', '--sort', default=None,
                         choices=['author', 'title'],
                         help='how the results should be sorted')
@@ -105,7 +108,9 @@ def _parse_args(argv):
 
         curses = None
 
-    return args.pattern, tuple(util.unique(args.paths)), log_level, args.sort
+    matcher = matching.Matcher(args.pattern, args.ignore_case, True)
+
+    return tuple(util.unique(args.paths)), matcher, log_level, args.sort
 
 
 def _print_progress(curses_window, n_searched, paths, results):
@@ -145,7 +150,7 @@ def _epub_search(argv):
     # Required for formatting with thousand separator
     locale.setlocale(locale.LC_ALL, '')
 
-    pattern, paths, log_level, sort = _parse_args(argv)
+    paths, matcher, log_level, sort = _parse_args(argv)
 
     results = []
     logged = False
@@ -162,7 +167,7 @@ def _epub_search(argv):
         _print_progress(curses_window, n_searched, paths, results)
 
     try:
-        for result in search.search(paths, pattern):
+        for result in search.search(paths, matcher):
             if result.error is not None:
                 if log_level >= LogLevel.DEFAULT:
                     logged = True

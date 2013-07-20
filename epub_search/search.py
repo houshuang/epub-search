@@ -47,7 +47,7 @@ class SearchResult(namedtuple('SearchResult', _search_result_fields)):
                                                 n_matches, error, warnings)
 
 
-def _search_epub(path, to_match):
+def _search_epub(path, matcher):
     if isinstance(path, epub.Epub):
         epub_file = path
         path = epub_file.path
@@ -64,15 +64,15 @@ def _search_epub(path, to_match):
         n_matches = 0
 
         for content in epub_file.contents:
-            n_matches += content.text.count(to_match)
+            n_matches += matcher.count(content.text)
 
         return SearchResult(path=path, title=epub_file.title,
                             author=epub_file.author, n_matches=n_matches,
                             warnings=epub_file.warnings)
 
 
-def search(paths, to_match):
+def search(paths, matcher):
     for path in paths:
-        yield _search_epub(path, to_match)
+        yield _search_epub(path, matcher)
 
 # ex:et:ts=4:
