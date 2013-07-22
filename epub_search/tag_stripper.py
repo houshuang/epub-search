@@ -21,6 +21,12 @@ import xml.parsers.expat
 
 from lxml import etree as ElementTree
 
+try:
+    from epub_search import _speedups_expat
+
+except ImportError:
+    _speedups_expat = None
+
 
 class TagStripError(Exception):
     """The error raised when stripping tags fails."""
@@ -49,39 +55,52 @@ class _TagStripperBase(object):
         self.set_end_element_handler(None)
         self.set_character_handler(None)
 
-        self.parse(xhtml.replace('\n', ' '))
+        self.parse(xhtml)
 
         return ''.join(parts)
 
 
-class _ExpatTagStripper(_TagStripperBase):
-    __slots__ = ('__parser',)
+if _speedups_expat is not None:
+    class _ExpatTagStripper(object):
+        __slots__ = ()
 
-    def __init__(self):
-        self.__parser = xml.parsers.expat.ParserCreate()
+        @staticmethod
+        def __call__(xhtml):
+            try:
+                return _speedups_expat.strip_tags(xhtml)
 
-        # Avoid join()ing thousands of strings,
-        # a decent buffer size is used
-        self.__parser.buffer_text = True
+            except ValueError as e:
+                raise TagStripError(e)
 
-        # Faster to parse
-        self.__parser.returns_unicode = False
+else:
+    class _ExpatTagStripper(_TagStripperBase):
+        __slots__ = ('__parser',)
 
-    def parse(self, xhtml):
-        try:
-            self.__parser.Parse(xhtml, True)
+        def __init__(self):
+            self.__parser = xml.parsers.expat.ParserCreate()
 
-        except xml.parsers.expat.ExpatError as e:
-            raise TagStripError(e)
+            # Avoid join()ing thousands of strings
+            # a decent buffer size is used
+            self.__parser.buffer_text = True
 
-    def set_start_element_handler(self, value):
-        self.__parser.StartElementHandler = value
+            # Faster to parse str than unicode
+            self.__parser.returns_unicode = False
 
-    def set_end_element_handler(self, value):
-        self.__parser.EndElementHandler = value
+        def parse(self, xhtml):
+            try:
+                self.__parser.Parse(xhtml, True)
 
-    def set_character_handler(self, value):
-        self.__parser.CharacterDataHandler = value
+            except xml.parsers.expat.ExpatError as e:
+                raise TagStripError(e)
+
+        def set_start_element_handler(self, value):
+            self.__parser.StartElementHandler = value
+
+        def set_end_element_handler(self, value):
+            self.__parser.EndElementHandler = value
+
+        def set_character_handler(self, value):
+            self.__parser.CharacterDataHandler = value
 
 
 class _LxmlTagStripper(_TagStripperBase):
@@ -146,7 +165,7 @@ class TagStripper(object):
     def __call__(self, xhtml):
         while 1:
             try:
-                return self.__tag_stipper(xhtml)
+                return self.__tag_stipper(xhtml.replace('\n', ' '))
 
             except TagStripError:
                 if not self.__tag_stippers:
