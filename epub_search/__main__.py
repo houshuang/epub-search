@@ -86,6 +86,11 @@ def _parse_args(argv):
     parser.add_argument('--disable-curses', action='store_true',
                         help=argparse.SUPPRESS)
 
+    # search.search() will only run sync when sync is
+    # True or None (automatic), store_const defaults to None
+    parser.add_argument('--sync', action='store_const', const=True,
+                        help=argparse.SUPPRESS)
+
     parser.add_argument('paths', metavar='PATH', nargs='+',
                         action=_EpubPathsAction, type=_epub_path,
                         help='list of epubs/paths to search in')
@@ -113,7 +118,7 @@ def _parse_args(argv):
     matcher = matching.Matcher(args.pattern, args.ignore_case, True)
 
     return (tuple(util.unique(args.paths)), matcher,
-            log_level, args.sort, args.context)
+            log_level, args.sort, args.context, args.sync)
 
 
 def _print_progress(curses_window, n_searched, paths, results):
@@ -153,7 +158,7 @@ def _epub_search(argv):
     # Required for formatting with thousand separator
     locale.setlocale(locale.LC_ALL, '')
 
-    paths, matcher, log_level, sort, with_context = _parse_args(argv)
+    paths, matcher, log_level, sort, with_context, sync = _parse_args(argv)
 
     results = []
     logged = False
@@ -170,7 +175,7 @@ def _epub_search(argv):
         _print_progress(curses_window, n_searched, paths, results)
 
     try:
-        for result in search.search(paths, matcher, with_context):
+        for result in search.search(paths, matcher, with_context, sync):
             if result.error is not None:
                 if log_level >= LogLevel.DEFAULT:
                     logged = True

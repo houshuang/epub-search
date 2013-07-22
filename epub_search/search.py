@@ -20,6 +20,7 @@
 from collections import namedtuple
 
 from epub_search import epub
+from epub_search import multiprocess
 
 
 LabelMatches = namedtuple('LabelMatches', ('label', 'matches'))
@@ -95,8 +96,20 @@ def _search_epub(path, matcher, with_context):
                             matches=matches, warnings=epub_file.warnings)
 
 
-def search(paths, matcher, with_context):
-    for path in paths:
-        yield _search_epub(path, matcher, with_context)
+def search(paths, matcher, with_context, sync=None):
+    if not paths:
+        return []
+
+    # Only run in sync if specifically told to or when there is only
+    # one path but we haven't been specifically told not to run sync.
+    if sync or (sync is None and len(paths) == 1):
+        def search_sync():
+            for path in paths:
+                yield _search_epub(path, matcher, with_context)
+
+        return search_sync()
+
+    searches = [(path, matcher, with_context) for path in paths]
+    return multiprocess.Job(_search_epub, searches)
 
 # ex:et:ts=4:
