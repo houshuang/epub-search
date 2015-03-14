@@ -28,6 +28,18 @@ from lxml import etree as ElementTree
 
 from epub_search.tag_stripper import TagStripError, TagStripper
 
+# Python 3 compat
+try:
+    range = xrange
+except:
+    pass
+
+try:
+    unquote = urllib.unquote
+except:
+    import urllib.parse
+    unquote = urllib.parse.unquote
+
 
 _Item = namedtuple('_Item', ('path', 'media_type'))
 
@@ -221,7 +233,7 @@ class Epub(object):
             # in case the author role was not found
             self.__author = creators[0].text.strip()
 
-            for i in xrange(1, len(creators)):
+            for i in range(1, len(creators)):
                 if _XPATH_CREATOR_IS_AUTHOR(creators[i]):
                     self.__author = creators[i].text.strip()
                     break
@@ -239,7 +251,7 @@ class Epub(object):
             item_href = item.get('href')
             item_media_type = item.get('media-type')
 
-            manifest[item_id] = _Item(path=urllib.unquote(item_href),
+            manifest[item_id] = _Item(path=unquote(item_href),
                                       media_type=item_media_type)
 
         return manifest
@@ -261,7 +273,7 @@ class Epub(object):
             if text is None or src is None:
                 continue
 
-            item_labels[urllib.unquote(src)] = text.strip()
+            item_labels[unquote(src)] = text.strip()
 
         return item_labels
 

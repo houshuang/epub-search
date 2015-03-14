@@ -84,7 +84,10 @@ else:
             self.__parser.buffer_text = True
 
             # Faster to parse str than unicode
-            self.__parser.returns_unicode = False
+            try:
+                self.__parser.returns_unicode = False
+            except: 
+                pass # Python 3
 
         def parse(self, xhtml):
             try:
@@ -165,7 +168,7 @@ class TagStripper(object):
     def __call__(self, xhtml):
         while 1:
             try:
-                return self.__tag_stipper(xhtml.replace('\n', ' '))
+                return self.__tag_stipper(xhtml.replace(b'\n', b' '))
 
             except TagStripError:
                 if not self.__tag_stippers:

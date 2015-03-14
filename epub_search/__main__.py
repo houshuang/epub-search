@@ -30,10 +30,13 @@ except ImportError:
     curses = None
 
 try:
-    import cStringIO as StringIO
+    try:
+        import cStringIO as StringIO
 
+    except ImportError:
+        import StringIO
 except ImportError:
-    import StringIO
+    from io import StringIO # Python 3
 
 from epub_search import matching
 from epub_search import search
@@ -168,7 +171,12 @@ def _epub_search(argv):
 
         # Redirect until after after search
         saved_stderr = sys.stderr
-        sys.stderr = StringIO.StringIO()
+        
+        # Python 3 compat
+        try:
+            sys.stderr = StringIO.StringIO()
+        except:
+            sys.stderr = StringIO()
 
         curses_window = curses.initscr()
 

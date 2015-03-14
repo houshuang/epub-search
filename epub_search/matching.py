@@ -19,6 +19,12 @@
 
 import re
 
+# Python 3 compat
+try:
+    basestring = basestring
+except NameError:
+    basestring = (str,bytes)
+
 
 class Match(object):
     __slots__ = ('text', 'match_positions')

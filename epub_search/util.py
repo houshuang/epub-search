@@ -51,7 +51,12 @@ def unique(iterable):
     seen = set()
     seen_add = seen.add
 
-    for element in itertools.ifilterfalse(seen.__contains__, iterable):
+    # Python 3 compat
+    try:
+        ifilterfalse = itertools.ifilterfalse
+    except:
+        ifilterfalse = itertools.filterfalse
+    for element in ifilterfalse(seen.__contains__, iterable):
         seen_add(element)
 
         yield element
