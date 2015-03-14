@@ -3,8 +3,9 @@ import sys
 from setuptools import setup
 
 import epub_search
-from setup.enviroment import extensions
-from setup.failablebuildext import BuildFailed, FailableBuildExt
+sys.path.insert(0, './setup')
+from enviroment import extensions
+from failablebuildext import BuildFailed, FailableBuildExt
 
 
 if sys.version_info < (2, 7, 0):
